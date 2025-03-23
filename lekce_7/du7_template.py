@@ -10,8 +10,10 @@ def jed(dopredna, uhlova):
     # “dopredna” je float a obsahuje dopřednou rychlost robota
     #    pro tento úkol prozatím používejte hodnotu 135 nebo 0
     # “uhlova” je float a obsahuje rychlost otáčení robota
-    #    pro tento úkol prozatím používejte hodnotu 1335 nebo 0
-    # Použijte vzorečky kinematiky a z výsledků zavolejte funkci jed_pwm pro obě kola
+    #    pro tento úkol prozatím používejte hodnotu 1350 nebo 0
+    # Použijte vzorečky kinematiky a spočítejte v_l a v_r
+    # Podle znamínek v_l a v_r volejte příslušné příkazy na směr motorů
+    # Metoda také zastaví pokud ji dám nulové rychlosti
 
     return 0
 
