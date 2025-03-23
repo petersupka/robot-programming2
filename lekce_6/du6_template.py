@@ -175,7 +175,7 @@ def stav_reaguj_na_caru(data_string):
             # posun robota o kusok blizsie k ocakavanej pozicii ciernej ciary (ak z nej zbehol mimo)
             if senzory_posledne_aktivne[2]:
                 jed("levy", "dopredu", 100)
-                jed("pravy", "dopredu", 2 0)
+                jed("pravy", "dopredu", 20)
                 sleep(0.5)
                 # zaroven zaznam o predchadzajucom stave (True) pre pravy senzor nastav na 0
                 senzory_posledne_aktivne[2] = 0
