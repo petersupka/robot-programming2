@@ -1,5 +1,13 @@
 from picoed import i2c, button_a, button_b, display
 from time import sleep
+from random import choice
+
+standard_rychlost = 120                 # standardna rychlost pohybu
+pauza_otocka = 0.05                     # pauza pri otocke
+pauza_pohyb = 0.3                       # pauza pri pohybe
+pauza_motorov = 1                       # pauza motorov
+centralny_senzor_predtym = [0, 0]       # vpravo/vlavo pre ulozenie stavu centralneho senzoru predtym
+displej_svietivost = 10                 # svietivost displeja
 
 def vypis_senzory_cary(levy, centralni, pravy):
     print(levy, centralni, pravy)
@@ -123,31 +131,163 @@ def detekuj_krizovatku(data_string):
     # situace 1: vsechny tri senzory detekuji cernou
     # situace 2: jenom dva senzory detekuji cernou
     #return True/False
-    return False # nahradte tento return
+
+    # rychla konstrola, ci je robot na krizovatke -> 2+ senzorov detekuje ciernu ciaru
+    print(data_string[5:8].count('1'))
+    if data_string[5:8].count('1') >= 2:
+        return True # nahradte tento return
+    else:
+        return False
 
 def stav_reaguj_na_caru(data_string):
     if detekuj_krizovatku(data_string):
         return False
-    
+
+    if vrat_centralni(data_string):
+        jed("pravy", "dopredu", standard_rychlost)
+        jed("levy", "dopredu", standard_rychlost)
+        
+        return True
+
     if vrat_levy(data_string):
-        jed("pravy", "dopredu", 120)
+        jed("pravy", "dopredu", standard_rychlost)
         jed("levy", "dopredu", 0)
         
         return True
     
     if vrat_pravy(data_string):
         jed("pravy", "dopredu", 0)
-        jed("levy", "dopredu", 120)
+        jed("levy", "dopredu", standard_rychlost)
  
         return True 
     
     return True
 
+def otocka_vlavo():
+    centralny_senzor_predtym[0] = 1
+    while True:
+        jed("levy", "dozadu", standard_rychlost)
+        jed("pravy", "dopredu", standard_rychlost)
+
+        # podmienka zabezpeci, ze sa robot otoci pred novym citanim senzorov 
+        # o tolko, aby bol centralny senzor pozicne na bielej ploche
+        # aby sa nestalo, ze pri miernom vyboceni a otacani ku ciernej ciare ju zachyti 
+        # a vlastne sa vobec neotoci
+        if centralny_senzor_predtym[0] == 1:
+            centralny_senzor_predtym[0] = 0
+            sleep(pauza_otocka*10)
+
+        sleep(pauza_otocka)
+        data_string = stav_vycti_senzory()
+        if vrat_centralni(data_string):
+            break
+    zastav()
+    sleep(pauza_motorov)    
+    return True
+    
+def otocka_vpravo():
+    centralny_senzor_predtym[1] = 1
+    while True:
+        jed("levy", "dopredu", standard_rychlost)
+        jed("pravy", "dozadu", standard_rychlost)
+
+        # podmienka zabezpeci, ze sa robot otoci pred novym citanim senzorov 
+        # o tolko, aby bol centralny senzor pozicne na bielej ploche
+        # aby sa nestalo, ze pri miernom vyboceni a otacani ku ciernej ciare ju zachyti 
+        # a vlastne sa vobec neotoci
+        if centralny_senzor_predtym[1] == 1:
+            centralny_senzor_predtym[1] = 0
+            sleep(pauza_otocka*10)
+
+        sleep(pauza_otocka)
+        data_string = stav_vycti_senzory()
+        if vrat_centralni(data_string):
+            break
+    zastav()
+    sleep(pauza_motorov)
+    return True
+
+def pohyb_mierne_vpred():
+    # pohneme robotom dopredu pocas 'pauza_pohyb' sekund
+    jed("levy", "dopredu", standard_rychlost)
+    jed("pravy", "dopredu", standard_rychlost)
+    sleep(pauza_pohyb)
+    return True
+
+def stav_akcia_na_krizovatke(data_string):
+    if data_string[5:8] == "111":  # 'X' alebo 'T' krizovatka
+        # situacia 1: vsetky senzory detekuju ciernu ciaru
+        if vrat_centralni(vycti_senzory()):
+            # vyberieme nahodne, ale moznost vyberu priamo je mozna len ak 
+            # centralny senzor detekuje ciernu ciaru aj po pohybe dopredu (popojed),
+            # ktory prebehne tesne pred touto funkciou v hlavnej vetve programu
+            # detto pre 110 (chybajuca ciara vlavo) a 011 (chybajuca ciara vpravo)
+            strana = choice(["vpravo", "priamo", "vlavo"])
+        else:
+            strana = choice(["vpravo", "vlavo"])
+
+        if strana == "vpravo":
+            display.show("<"+str(pocet_krizovatiek)+" ", displej_svietivost)
+#            display.show("<B ")
+            otocka_vpravo()
+        elif strana == "vlavo":
+            display.show(" "+str(pocet_krizovatiek)+">", displej_svietivost)
+#            display.show(" B>")
+            otocka_vlavo()
+        else:   # priamo
+            display.show("v"+str(pocet_krizovatiek)+"v", displej_svietivost)
+#            display.show(" B ")
+            pohyb_mierne_vpred()
+
+        sleep(pauza_otocka)
+        return True
+    
+    if data_string[5:8] == "110":  # 'T' krizovatka alebo roh smerujuci doprava
+        # situacia 2: len dva senzory detekuju ciernu ciaru
+        if vrat_centralni(vycti_senzory()):
+            # ak je aj po pohybe priamo (popojed) centralny senzor na ciare, 
+            # tak sa pohneme priamo/vpravo
+            # inak sa pohneme vpravo
+            strana = choice(["priamo", "vpravo"])
+        else:
+            strana = choice(["vpravo"])
+
+        if strana == "vpravo":
+            display.show("<"+str(pocet_krizovatiek)+" ", displej_svietivost)
+#            display.show("<B ")
+            otocka_vpravo()
+        else:   # priamo
+            display.show("v"+str(pocet_krizovatiek)+"v", displej_svietivost)
+#            display.show(" B ")
+            pohyb_mierne_vpred()
+        return True
+    
+    if data_string[5:8] == "011":  # 'T' krizovatka alebo roh smerujuci dolava
+        # situacia 3: len dva senzory detekuju ciernu ciaru
+        if vrat_centralni(vycti_senzory()):
+            # ak je aj po pohybe priamo (popojed) centralny senzor na ciare, 
+            # tak sa pohneme vlavo/priamo
+            # inak sa pohneme vlavo
+            strana = choice(["vlavo", "priamo"])
+        else:
+            strana = choice(["vlavo"])
+
+        if strana == "vlavo":
+            display.show(" "+str(pocet_krizovatiek)+">", displej_svietivost)
+            otocka_vlavo()
+        else:   # priamo
+            display.show("v"+str(pocet_krizovatiek)+"v", displej_svietivost)
+#            display.show(" B ")
+            pohyb_mierne_vpred()
+        return True
+    
+    return False
 
 if __name__ == "__main__":
 
     init_motoru()
     zastav()
+    sleep(pauza_motorov)
 
     aktualni_stav = "start"
 
@@ -155,6 +295,8 @@ if __name__ == "__main__":
     st_vycti_senzory = "vycti senzory"
     st_stop = "st_stop"
     st_popojed = "st_popojed"
+
+    display.show("A", displej_svietivost)
 
     while not button_a.was_pressed():
         print(aktualni_stav)
@@ -165,7 +307,10 @@ if __name__ == "__main__":
 
     aktualni_stav = st_vycti_senzory
 
-    while not button_b.was_pressed():
+    pocet_krizovatiek = 10    
+    display.show(pocet_krizovatiek, displej_svietivost)
+
+    while not button_b.was_pressed() and pocet_krizovatiek > 0:
         if aktualni_stav == st_vycti_senzory:
             data = stav_vycti_senzory()
             vypis_senzory_cary(vrat_levy(data), vrat_centralni(data), vrat_pravy(data))
@@ -182,16 +327,29 @@ if __name__ == "__main__":
         
         if aktualni_stav == st_stop:
             zastav()
+            sleep(pauza_motorov)
             aktualni_stav = st_popojed
             print(aktualni_stav)
         
         if aktualni_stav == st_popojed:
             # DU 8  - naprogramujte zde
             print(aktualni_stav)
-        
-        sleep(0.1)
+            if detekuj_krizovatku(data):  # T / X Crossroad / Corner (left/right)
+                pocet_krizovatiek -= 1
+                pohyb_mierne_vpred()    # popojed
+                zastav()
+                sleep(pauza_motorov)
+                stav_akcia_na_krizovatke(data)
+                zastav()
+                display.show(" "+str(pocet_krizovatiek)+" ", displej_svietivost)
+                sleep(pauza_motorov)
+                aktualni_stav = st_vycti_senzory
+        sleep(0.005)
     
     zastav()
+    display.show('END', displej_svietivost)
+    sleep(pauza_motorov)
+    display.fill(0)
 
     
 
