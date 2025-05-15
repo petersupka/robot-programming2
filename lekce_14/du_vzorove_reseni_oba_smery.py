@@ -72,7 +72,7 @@ if __name__ == "__main__":
     ultrazvuk = Ultrazvuk(DigitalInOut(P8), DigitalInOut(P12))
 
     reference = 0.2 # na jakou vzdalenost cheme zastavit [m]
-    P = -4000
+    P = -400
     max_PWM = 150 #teoreticky 255, ale ja se bojim :)
     min_PWM = 70 # idealne zjisteno kalibraci, nebo vypozorovano, kdy se robot odlepi
     mrtva_zona = 0.05 #napr 5cm - kdy regulace uz rekne "uz tu jsem" a prestane regulovat
