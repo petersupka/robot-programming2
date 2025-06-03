@@ -283,4 +283,4 @@ if __name__ == "__main__":
         sleep(0.05)
     
     display.fill(0)
-    zastav() 
+    zastav()
